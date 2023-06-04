@@ -14,6 +14,7 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 @SpringBootApplication
 public class SpringBootReactorApplication implements CommandLineRunner {
@@ -24,8 +25,9 @@ public class SpringBootReactorApplication implements CommandLineRunner {
     }
 
     @Override
-    public void run(String... args){
-        IntervaloInfinito();
+    public void run(String... args) throws InterruptedException {
+        InterumpirIntervaloInfinito();
+        //IntervaloInfinito();
         //Delay();
         //Intervalos();
         //UsuarioComentarioZipWithRangos();
@@ -36,6 +38,24 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         //ToString();
         //FlatMap();
         //Iterable();
+    }
+    public void InterumpirIntervaloInfinito() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        Flux.interval(Duration.ofSeconds(1))
+                .doOnTerminate(latch::countDown)
+                .flatMap(i -> {
+                    if(i >= 5){
+                        return Flux.error(new InterruptedException("Solo 5"));
+                    }
+                    return Flux.just(i);
+                })
+                //TODO: El operador ".retry(n)" permite realizar n reintentos luedo de encontrar un error
+                .retry(3)
+                .subscribe(i -> log.info(i.toString()),
+                        e -> log.error(e.getMessage()));
+        latch.await();
+
     }
     public void IntervaloInfinito(){
         Flux.interval(Duration.ofSeconds(1))

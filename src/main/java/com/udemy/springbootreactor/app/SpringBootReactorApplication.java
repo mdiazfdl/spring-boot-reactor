@@ -14,6 +14,8 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 
 @SpringBootApplication
@@ -26,7 +28,8 @@ public class SpringBootReactorApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws InterruptedException {
-        InterumpirIntervaloInfinito();
+        Create();
+        //InterumpirIntervaloInfinito();
         //IntervaloInfinito();
         //Delay();
         //Intervalos();
@@ -38,6 +41,25 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         //ToString();
         //FlatMap();
         //Iterable();
+    }
+    public void Create(){
+        Flux.create(emitter ->{
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                private Integer contador = 0;
+                @Override
+                public void run() {
+                    emitter.next(++contador);
+                    if(contador >= 10){
+                        timer.cancel();
+                        emitter.complete();
+                    }
+                }
+            }, 1000, 1000);
+        })
+                .doOnNext(e -> log.info(e.toString()))
+                .doOnComplete(() -> log.info("Completado"))
+                .subscribe();
     }
     public void InterumpirIntervaloInfinito() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);

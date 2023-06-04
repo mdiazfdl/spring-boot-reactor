@@ -3,6 +3,8 @@ package com.udemy.springbootreactor.app;
 import com.udemy.springbootreactor.app.models.Comentarios;
 import com.udemy.springbootreactor.app.models.Usuario;
 import com.udemy.springbootreactor.app.models.UsuarioComentarios;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -28,7 +30,9 @@ public class SpringBootReactorApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws InterruptedException {
-        Create();
+        Contrapresion2();
+        //Contrapresion1();
+        //Create();
         //InterumpirIntervaloInfinito();
         //IntervaloInfinito();
         //Delay();
@@ -42,32 +46,78 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         //FlatMap();
         //Iterable();
     }
-    public void Create(){
-        Flux.create(emitter ->{
-            Timer timer = new Timer();
-            timer.schedule(new TimerTask() {
-                private Integer contador = 0;
-                @Override
-                public void run() {
-                    emitter.next(++contador);
-                    if(contador >= 10){
-                        timer.cancel();
-                        emitter.complete();
+    public void Contrapresion2() {
+        Flux.range(1, 10)
+                .log()
+                .limitRate(5)
+                .subscribe();
+    }
+
+    public void Contrapresion1() {
+        Flux.range(1, 10)
+                .log()
+                .subscribe(new Subscriber<Integer>() {
+                    private Subscription s;
+                    private int limite = 5;
+                    private int contador = 0;
+
+                    @Override
+                    public void onSubscribe(Subscription subscription) {
+                        this.s = subscription;
+                        s.request(limite);
+
                     }
-                }
-            }, 1000, 1000);
-        })
+
+                    @Override
+                    public void onNext(Integer integer) {
+                        log.info(integer.toString());
+                        contador++;
+                        if (contador == limite) {
+                            contador = 0;
+                            s.request(limite);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+
+                    }
+                });
+    }
+
+    public void Create() {
+        Flux.create(emitter -> {
+                    Timer timer = new Timer();
+                    timer.schedule(new TimerTask() {
+                        private Integer contador = 0;
+
+                        @Override
+                        public void run() {
+                            emitter.next(++contador);
+                            if (contador >= 10) {
+                                timer.cancel();
+                                emitter.complete();
+                            }
+                        }
+                    }, 1000, 1000);
+                })
                 .doOnNext(e -> log.info(e.toString()))
                 .doOnComplete(() -> log.info("Completado"))
                 .subscribe();
     }
+
     public void InterumpirIntervaloInfinito() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
 
         Flux.interval(Duration.ofSeconds(1))
                 .doOnTerminate(latch::countDown)
                 .flatMap(i -> {
-                    if(i >= 5){
+                    if (i >= 5) {
                         return Flux.error(new InterruptedException("Solo 5"));
                     }
                     return Flux.just(i);
@@ -79,37 +129,42 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         latch.await();
 
     }
-    public void IntervaloInfinito(){
+
+    public void IntervaloInfinito() {
         Flux.interval(Duration.ofSeconds(1))
                 .doOnNext(i -> log.info(i.toString()))
                 .blockLast();
 
     }
-    public void Delay(){
-        Flux<Integer> rango = Flux.range(1,12)
+
+    public void Delay() {
+        Flux<Integer> rango = Flux.range(1, 12)
                 .delayElements(Duration.ofSeconds(1))
                 .doOnNext(i -> log.info(i.toString()));
         //TODO: El operador ".blockLast()" es un observador pero que bloquea hasta que todos los procesos terminen
         rango.blockLast();
 
     }
-    public void Intervalos(){
-        Flux<Integer> rango = Flux.range(1,12);
+
+    public void Intervalos() {
+        Flux<Integer> rango = Flux.range(1, 12);
         Flux<Long> retraso = Flux.interval(Duration.ofSeconds(1));
 
-        rango.zipWith(retraso,(ra,re) -> ra)
+        rango.zipWith(retraso, (ra, re) -> ra)
                 .doOnNext(i -> log.info(i.toString()))
                 .blockLast();
     }
-    public void UsuarioComentarioZipWithRangos(){
+
+    public void UsuarioComentarioZipWithRangos() {
         Flux.just(1, 2, 3, 4)
-                .map(i -> (i*2))
+                .map(i -> (i * 2))
                 //TODO: El operador ".range()" crea un rango de numeros desde el start hasta el count.
                 .zipWith(Flux.range(
-                        0,4),(uno,dos) -> String.format("Primer Flux: %d, Segundo Flux %d", uno,dos))
+                        0, 4), (uno, dos) -> String.format("Primer Flux: %d, Segundo Flux %d", uno, dos))
                 .subscribe(log::info);
     }
-    public void UsuarioComentarioZipWith2(){
+
+    public void UsuarioComentarioZipWith2() {
         Mono<Usuario> usuarioMono = Mono.fromCallable(() -> new Usuario("Periquito", "Perez"));
         Mono<Comentarios> usuarioComentarioMono = Mono.fromCallable(() -> {
             Comentarios comentarios = new Comentarios();
@@ -123,11 +178,12 @@ public class SpringBootReactorApplication implements CommandLineRunner {
                 .map(tupla -> {
                     Usuario u = tupla.getT1();
                     Comentarios c = tupla.getT2();
-                    return new UsuarioComentarios(u,c);
+                    return new UsuarioComentarios(u, c);
                 })
                 .subscribe(usuarioComentarios -> log.info(usuarioComentarios.toString()));
     }
-    public void UsuarioComentarioZipWith1(){
+
+    public void UsuarioComentarioZipWith1() {
         Mono<Usuario> usuarioMono = Mono.fromCallable(() -> new Usuario("Periquito", "Perez"));
         Mono<Comentarios> usuarioComentarioMono = Mono.fromCallable(() -> {
             Comentarios comentarios = new Comentarios();
@@ -137,10 +193,11 @@ public class SpringBootReactorApplication implements CommandLineRunner {
             return comentarios;
         });
         //TODO: El operador ".zipWith()" combina dos flujos
-        usuarioMono.zipWith(usuarioComentarioMono,(u,c) -> (new UsuarioComentarios(u,c)))
+        usuarioMono.zipWith(usuarioComentarioMono, (u, c) -> (new UsuarioComentarios(u, c)))
                 .subscribe(usuarioComentarios -> log.info(usuarioComentarios.toString()));
     }
-    public void UsuarioComentarioFlatMap(){
+
+    public void UsuarioComentarioFlatMap() {
         Mono<Usuario> usuarioMono = Mono.fromCallable(() -> new Usuario("Periquito", "Perez"));
         Mono<Comentarios> usuarioComentarioMono = Mono.fromCallable(() -> {
             Comentarios comentarios = new Comentarios();
@@ -149,9 +206,10 @@ public class SpringBootReactorApplication implements CommandLineRunner {
             comentarios.addComentario("comentario 3");
             return comentarios;
         });
-        usuarioMono.flatMap(u -> usuarioComentarioMono.map(c -> (new UsuarioComentarios(u,c))))
+        usuarioMono.flatMap(u -> usuarioComentarioMono.map(c -> (new UsuarioComentarios(u, c))))
                 .subscribe(usuarioComentarios -> log.info(usuarioComentarios.toString()));
     }
+
     public void CollectList() {
         List<Usuario> users = new ArrayList<>();
         users.add(new Usuario("Pepe", "A"));
@@ -164,28 +222,30 @@ public class SpringBootReactorApplication implements CommandLineRunner {
                 .collectList()
                 .subscribe(lista -> log.info(lista.toString()));
     }
-    public void ToString(){
+
+    public void ToString() {
         List<Usuario> users = new ArrayList<>();
-        users.add(new Usuario("Pepe","A"));
+        users.add(new Usuario("Pepe", "A"));
         users.add(new Usuario("Juan", "B"));
-        users.add(new Usuario("Ana","C"));
-        users.add(new Usuario("Maria","D"));
-        users.add(new Usuario("Maria","E"));
+        users.add(new Usuario("Ana", "C"));
+        users.add(new Usuario("Maria", "D"));
+        users.add(new Usuario("Maria", "E"));
         Flux.fromIterable(users)
                 //TODO: El operador ".map()", mapea a tipos de datos comunes (String, Objects...)
                 .map(usuario -> usuario.getNombre().toUpperCase() + " " + (usuario.getApellido().toUpperCase()))
                 //TODO: El operador ".flatMap()", mapea a tipos de datos observables (Flux o Mono)
                 .flatMap(nombre -> {
-                    if(nombre.contains("MARIA")) {
+                    if (nombre.contains("MARIA")) {
                         return Mono.just(nombre);
-                    }else{
+                    } else {
                         return Mono.empty(); //Convierte el objeto en un mono empty por lo cua lo elimina del flujo, actuando como un filter
                     }
                 })
                 .map(nombre -> nombre.toLowerCase())
                 .subscribe(usuario -> log.info(usuario.toString()));
     }
-    public void FlatMap(){
+
+    public void FlatMap() {
         List<String> users = new ArrayList<>();
         users.add("Pepe A");
         users.add("Juan B");
@@ -194,12 +254,12 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         users.add("Maria E");
         Flux.fromIterable(users)
                 //TODO: El operador ".map()", mapea a tipos de datos comunes (String, Objects...)
-                .map(nombre -> new Usuario(nombre.split(" ")[0].toUpperCase(),nombre.split(" ")[1].toUpperCase()))
+                .map(nombre -> new Usuario(nombre.split(" ")[0].toUpperCase(), nombre.split(" ")[1].toUpperCase()))
                 //TODO: El operador ".flatMap()", mapea a tipos de datos observables (Flux o Mono)
                 .flatMap(usuario -> {
-                    if(usuario.getNombre().equalsIgnoreCase("maria")) {
+                    if (usuario.getNombre().equalsIgnoreCase("maria")) {
                         return Mono.just(usuario);
-                    }else{
+                    } else {
                         return Mono.empty(); //Convierte el objeto en un mono empty por lo cua lo elimina del flujo, actuando como un filter
                     }
                 })
@@ -210,7 +270,8 @@ public class SpringBootReactorApplication implements CommandLineRunner {
                 })
                 .subscribe(usuario -> log.info(usuario.toString()));
     }
-    public void Iterable(){
+
+    public void Iterable() {
         List<String> users = new ArrayList<>();
         users.add("Pepe A");
         users.add("Juan B");
@@ -218,7 +279,7 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         users.add("Maria D");
         users.add("Maria E");
         Flux<String> nombres = Flux.fromIterable(users);
-        Flux<Usuario> usuarios = nombres.map(nombre -> new Usuario(nombre.split(" ")[0].toUpperCase(),nombre.split(" ")[1].toUpperCase()))
+        Flux<Usuario> usuarios = nombres.map(nombre -> new Usuario(nombre.split(" ")[0].toUpperCase(), nombre.split(" ")[1].toUpperCase()))
                 //TODO: El operador ".filter()" se evalua una funcion buleana, si se cumple, esos son los elemnetos que continuan en el flujo
                 .filter(usuario -> usuario.getNombre().equalsIgnoreCase("maria"))
                 .doOnNext(usuario -> {

@@ -25,7 +25,8 @@ public class SpringBootReactorApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args){
-        Delay();
+        IntervaloInfinito();
+        //Delay();
         //Intervalos();
         //UsuarioComentarioZipWithRangos();
         //UsuarioComentarioZipWith2();
@@ -35,6 +36,12 @@ public class SpringBootReactorApplication implements CommandLineRunner {
         //ToString();
         //FlatMap();
         //Iterable();
+    }
+    public void IntervaloInfinito(){
+        Flux.interval(Duration.ofSeconds(1))
+                .doOnNext(i -> log.info(i.toString()))
+                .blockLast();
+
     }
     public void Delay(){
         Flux<Integer> rango = Flux.range(1,12)
